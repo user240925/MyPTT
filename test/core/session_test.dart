@@ -95,6 +95,27 @@ void main() {
     expect(session.screen.scrollBottom, 23);
   });
 
+  test('user sends fire userActivity; automatic replies do not', () async {
+    var activity = 0;
+    session.userActivity.listen((_) => activity++);
+    await session.connect();
+    conn.emit([255, 253, 31]);
+    conn.emit('\x1b[6n'.codeUnits);
+    expect(activity, 0);
+    session.sendBytes([0x41]);
+    session.sendText('中');
+    expect(activity, 2);
+    session.sendBytes([0x42], userInitiated: false);
+    expect(activity, 2);
+    expect(conn.sent.last, 0x42);
+  });
+
+  test('cursorRowText is the text of the row the cursor is on', () async {
+    await session.connect();
+    conn.emit(codec.encode('first\r\n請輸入代號: ').bytes);
+    expect(session.cursorRowText, '請輸入代號:');
+  });
+
   test('the placeholder recogniser reports unknown', () {
     expect(NullScreenRecognizer().recognize(session.screen), ScreenKind.unknown);
   });
