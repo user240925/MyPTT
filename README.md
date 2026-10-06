@@ -1,17 +1,24 @@
-# myptt
+# MyPTT
 
-A new Flutter project.
+在 iPhone 上使用的 PTT 用戶端，以 [PCMan](https://github.com/pcman-bbs/pcman-windows) 為參考，用 Flutter 重新實作。
 
-## Getting Started
+- 透過 `wss://ws.ptt.cc/bbs` 連線，畫面為 80×24 的終端機。
+- 以滑動、縮放、按鍵列與系統輸入法操作。
+- 帳號密碼存放在系統鑰匙圈。
 
-This project is a starting point for a Flutter application.
+## 開發
 
-A few resources to get you started if this is your first Flutter project:
+需要 Flutter stable。在 Windows 上開發與測試，在 Mac 上建置 iOS 版。
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```
+flutter test
+flutter run -d windows
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- 設計規格：`docs/superpowers/specs/2026-10-06-myptt-ios-design.md`
+- iOS 建置步驟：`docs/ios-build.md`
+- Big5 對照表的來源與重新產生方式：`assets/uao/README.md`
+
+## 授權
+
+GNU GPL 第 2 版，見 `LICENSE`。本專案移植了 PCMan 的部分邏輯。
