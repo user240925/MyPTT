@@ -3,24 +3,34 @@ import 'package:flutter/widgets.dart';
 import '../core/encoding/big5_codec.dart';
 import '../core/terminal/row_glyphs.dart';
 import '../core/terminal/screen_buffer.dart';
+import '../core/terminal/selection.dart';
 import 'glyph_shapes.dart';
 import 'palette.dart';
 
-/// Paints a [ScreenBuffer]. Every glyph is centred in its own cell, so column
-/// alignment does not depend on the font's advance widths.
+/// Paints a [ScreenBuffer]. Every glyph is drawn inside its own cell, so
+/// column alignment does not depend on the font's advance widths.
 class TerminalPainter extends CustomPainter {
   TerminalPainter({
     required this.screen,
     required this.codec,
     required this.blinkOn,
+    this.showCursor = false,
+    this.selection,
   });
 
   final ScreenBuffer screen;
   final Big5Codec codec;
 
-  /// Whether blinking text is in its visible phase.
+  /// Whether blinking text and the cursor are in their visible phase.
   final bool blinkOn;
+  final bool showCursor;
+  final Selection? selection;
 
+  static const Color _cursorColor = Color(0xFFFFFFFF);
+  static const Color _selectionColor = Color(0x804488FF);
+
+  /// Fraction of the cell height taken by the underline cursor.
+  static const double _cursorHeight = 0.15;
   static const int _maxCachedGlyphs = 4000;
   static const List<String> _fonts = [
     'MingLiU', 'Microsoft JhengHei', 'PingFang TC', 'Heiti TC', 'monospace',
@@ -31,7 +41,7 @@ class TerminalPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final cw = size.width / screen.cols, ch = size.height / screen.rows;
     if (cw <= 0 || ch <= 0) return;
-    final bgPaint = Paint()..isAntiAlias = false;
+    final fill = Paint()..isAntiAlias = false;
 
     for (var r = 0; r < screen.rows; r++) {
       final top = r * ch;
@@ -46,7 +56,7 @@ class TerminalPainter extends CustomPainter {
         // Overdraw by half a pixel so rounding never leaves a seam.
         canvas.drawRect(
           Rect.fromLTRB(start * cw, top, end * cw + 0.5, top + ch + 0.5),
-          bgPaint..color = bg,
+          fill..color = bg,
         );
         start = end;
       }
@@ -56,7 +66,7 @@ class TerminalPainter extends CustomPainter {
         final box = Rect.fromLTWH(g.col * cw, top, g.width * cw, ch);
         final left = _visibleFg(g.leftAttr), right = _visibleFg(g.rightAttr);
         if (g.width == 1 || left == right) {
-          if (left != null) _draw(canvas, box, g.codePoint, left);
+          _drawClipped(canvas, box, g.codePoint, left, box);
         } else {
           final mid = box.left + cw;
           _drawClipped(canvas, box, g.codePoint, left,
@@ -65,32 +75,57 @@ class TerminalPainter extends CustomPainter {
               Rect.fromLTRB(mid, box.top, box.right, box.bottom));
         }
       }
+
+      final selected = selection?.columnsOnRow(r, screen.cols);
+      if (selected != null) {
+        final (from, to) = selected;
+        canvas.drawRect(
+          Rect.fromLTRB(from * cw, top, (to + 1) * cw, top + ch),
+          fill..color = _selectionColor,
+        );
+      }
+    }
+
+    if (showCursor && blinkOn) {
+      final col =
+          screen.cursorCol >= screen.cols ? screen.cols - 1 : screen.cursorCol;
+      final h = ch * _cursorHeight;
+      canvas.drawRect(
+        Rect.fromLTWH(col * cw, (screen.cursorRow + 1) * ch - h, cw, h),
+        fill..color = _cursorColor,
+      );
     }
   }
 
   Color? _visibleFg(int attr) =>
       (attr & Attr.blink) != 0 && !blinkOn ? null : foregroundOf(attr);
 
+  /// Draws the glyph laid out in [box] but only inside [clip], so a glyph
+  /// can never spill into a neighbouring cell.
   void _drawClipped(Canvas canvas, Rect box, int cp, Color? color, Rect clip) {
     if (color == null) return;
     canvas.save();
     canvas.clipRect(clip);
-    _draw(canvas, box, cp, color);
+    if (!drawShape(canvas, box, cp, color)) _drawText(canvas, box, cp, color);
     canvas.restore();
   }
 
-  void _draw(Canvas canvas, Rect box, int cp, Color color) {
-    if (drawShape(canvas, box, cp, color)) return;
+  void _drawText(Canvas canvas, Rect box, int cp, Color color) {
     final fontSize = box.height * 0.82;
     if (fontSize < 1) return;
     final tp = _painterFor(cp, color, fontSize);
-    tp.paint(
-      canvas,
-      Offset(
-        box.left + (box.width - tp.width) / 2,
-        box.top + (box.height - tp.height) / 2,
-      ),
-    );
+    final dy = box.top + (box.height - tp.height) / 2;
+    if (tp.width <= box.width) {
+      tp.paint(canvas, Offset(box.left + (box.width - tp.width) / 2, dy));
+      return;
+    }
+    // Squeeze glyphs from proportional fallback fonts that are wider than
+    // the cell.
+    canvas.save();
+    canvas.translate(box.left, dy);
+    canvas.scale(box.width / tp.width, 1);
+    tp.paint(canvas, Offset.zero);
+    canvas.restore();
   }
 
   TextPainter _painterFor(int cp, Color color, double fontSize) {
