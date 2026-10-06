@@ -2180,7 +2180,8 @@ void main() {
 
   Future<void> disposeView(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
-    await session.dispose();
+    // Stream teardown completes on the real event loop, not the test's fake one.
+    await tester.runAsync(session.dispose);
   }
 
   testWidgets('paints every kind of glyph without throwing', (tester) async {
