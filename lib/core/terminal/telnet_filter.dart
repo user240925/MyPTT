@@ -24,6 +24,12 @@ class TelnetFilter {
   int _command = 0;
   final List<int> _sub = [];
 
+  /// Forgets any half-received command, for a new connection.
+  void reset() {
+    _state = _State.data;
+    _sub.clear();
+  }
+
   void feed(List<int> input) {
     final out = <int>[];
     for (final b in input) {

@@ -23,6 +23,19 @@ class Terminal {
   int _savedCol = 0;
   int _savedAttr = Attr.normal;
 
+  /// Returns to the power-on state with a blank screen, for a new connection.
+  void reset() {
+    _state = _State.ground;
+    _params.clear();
+    attr = Attr.normal;
+    _savedRow = 0;
+    _savedCol = 0;
+    _savedAttr = Attr.normal;
+    screen.setScrollRegion(0, screen.rows - 1);
+    screen.eraseInDisplay(2);
+    screen.moveTo(0, 0);
+  }
+
   void feed(List<int> data) {
     for (final b in data) {
       switch (_state) {
@@ -100,9 +113,13 @@ class Terminal {
       if (_params.length < _maxParamBytes) _params.add(b);
     } else if (b <= 0x2F) {
       // Intermediate byte: not used by any sequence we handle.
-    } else {
+    } else if (b <= 0x7E) {
       _state = _State.ground;
-      if (b <= 0x7E) _dispatch(b);
+      _dispatch(b);
+    } else {
+      // A Big5 byte cannot be part of a sequence: the sequence was cut short.
+      _state = _State.ground;
+      if (b != 0x7F) screen.put(b, attr);
     }
   }
 

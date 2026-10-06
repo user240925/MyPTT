@@ -39,7 +39,14 @@ class TerminalSession {
   /// Fires whenever the screen content or the connection status changes.
   Stream<void> get updates => _updates.stream;
 
-  Future<void> connect() => connection.connect();
+  /// Starts a new connection from a blank terminal. Does nothing if a
+  /// connection is already open or in progress.
+  Future<void> connect() async {
+    if (connection.status != ConnectionStatus.disconnected) return;
+    _terminal.reset();
+    _telnet.reset();
+    await connection.connect();
+  }
 
   void sendBytes(List<int> bytes) {
     if (connection.status != ConnectionStatus.connected) return;

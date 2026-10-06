@@ -23,7 +23,8 @@ class Big5Codec {
   final ByteData _u2b;
 
   static bool isLead(int b) => b >= 0x81 && b <= 0xFE;
-  static bool isTrail(int b) => b >= 0x40 && b <= 0xFE;
+  static bool isTrail(int b) =>
+      (b >= 0x40 && b <= 0x7E) || (b >= 0xA1 && b <= 0xFE);
 
   int decodePair(int lead, int trail) {
     if (!isLead(lead) || !isTrail(trail)) return replacement;

@@ -203,6 +203,20 @@ void main() {
     expect(last.codePoint, Big5Codec.replacement);
   });
 
+  test('lead byte followed by a high byte that is not a trail byte', () {
+    term.feed([0xA4, 0x81, 0x41]);
+    final g = glyphsOfRow(screen, 0, codec);
+    expect(g[0].codePoint, Big5Codec.replacement);
+    expect(g[0].width, 1);
+    expect(g[1].codePoint, 0x4E22);
+    expect(g[1].width, 2);
+  });
+
+  test('a Big5 byte that interrupts a control sequence is kept', () {
+    term.feed([0x1B, 0x5B, 0x31, 0x3B, 0xA4, 0xA4, 0xA4, 0xE5]);
+    expect(row(0), '中文');
+  });
+
   // Review Focus 5
   test('garbage CSI is ignored', () {
     feed('$esc[${'9' * 500};${';' * 200}zA');

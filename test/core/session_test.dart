@@ -6,6 +6,7 @@ import 'package:myptt/core/encoding/big5_codec.dart';
 import 'package:myptt/core/recognition/screen_recognizer.dart';
 import 'package:myptt/core/session.dart';
 import 'package:myptt/core/terminal/row_glyphs.dart';
+import 'package:myptt/core/terminal/screen_buffer.dart';
 
 import '../support/fake_connection.dart';
 
@@ -78,6 +79,20 @@ void main() {
     conn.emit('still here'.codeUnits);
     conn.drop();
     expect(rowString(session.screen, 0, codec), 'still here');
+  });
+
+  test('reconnecting starts from a clean terminal state', () async {
+    await session.connect();
+    // Leaves a scroll region, a colour, and an unfinished Telnet subnegotiation.
+    conn.emit([...'[5;10r[1;31mold'.codeUnits, 255, 250, 24]);
+    conn.drop();
+
+    await session.connect();
+    conn.emit('Welcome'.codeUnits);
+    expect(rowString(session.screen, 0, codec), 'Welcome');
+    expect(session.screen.attrAt(0, 0), Attr.normal);
+    expect(session.screen.scrollTop, 0);
+    expect(session.screen.scrollBottom, 23);
   });
 
   test('the placeholder recogniser reports unknown', () {

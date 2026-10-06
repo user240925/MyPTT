@@ -19,6 +19,10 @@ class WsConnection implements Connection {
   final _status = StreamController<ConnectionStatus>.broadcast();
   WebSocket? _socket;
 
+  /// Bumped by every connect and close, so a handshake that finishes after
+  /// it was abandoned can tell it is stale.
+  int _attempt = 0;
+
   @override
   ConnectionStatus status = ConnectionStatus.disconnected;
 
@@ -37,12 +41,18 @@ class WsConnection implements Connection {
   @override
   Future<void> connect() async {
     if (status != ConnectionStatus.disconnected) return;
+    final attempt = ++_attempt;
     _set(ConnectionStatus.connecting);
+    final handshake = WebSocket.connect(
+      uri.toString(),
+      headers: {'Origin': origin},
+    );
     try {
-      final socket = await WebSocket.connect(
-        uri.toString(),
-        headers: {'Origin': origin},
-      ).timeout(_connectTimeout);
+      final socket = await handshake.timeout(_connectTimeout);
+      if (attempt != _attempt) {
+        unawaited(socket.close());
+        return;
+      }
       _socket = socket;
       _set(ConnectionStatus.connected);
       socket.listen(
@@ -53,8 +63,13 @@ class WsConnection implements Connection {
         onDone: () => _closed(socket),
         cancelOnError: true,
       );
+    } on TimeoutException {
+      // The handshake may still complete later; do not leave that socket open.
+      unawaited(handshake.then<void>((s) => s.close(), onError: (Object _) {}));
+      if (attempt == _attempt) _set(ConnectionStatus.disconnected);
+      rethrow;
     } catch (_) {
-      _set(ConnectionStatus.disconnected);
+      if (attempt == _attempt) _set(ConnectionStatus.disconnected);
       rethrow;
     }
   }
@@ -70,6 +85,7 @@ class WsConnection implements Connection {
 
   @override
   Future<void> close() async {
+    _attempt++;
     final socket = _socket;
     _socket = null;
     _set(ConnectionStatus.disconnected);
