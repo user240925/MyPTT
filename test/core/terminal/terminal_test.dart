@@ -208,7 +208,7 @@ void main() {
     feed('$esc[${'9' * 500};${';' * 200}zA');
     feed('$esc[?25lB');
     feed('$esc[>0cC');
-    feed('$esc${esc}[1mD');
+    feed('$esc$esc[1mD');
     feed('$esc#E');
     expect(row(0), 'ABCDE');
   });
