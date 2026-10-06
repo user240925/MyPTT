@@ -92,6 +92,46 @@ void main() {
     await disposeStrip(tester);
   });
 
+  testWidgets('the keyboard action key is ignored while composing', (tester) async {
+    await pumpStrip(tester);
+    tester.testTextInput.updateEditingValue(
+      value('$sentinelㄓㄨ', composing: const TextRange(start: 1, end: 3)),
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await tester.pump();
+    expect(conn.sent, isEmpty);
+    await disposeStrip(tester);
+  });
+
+  testWidgets('smart punctuation is off so typed quotes stay ASCII', (tester) async {
+    await pumpStrip(tester);
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.smartQuotesType, SmartQuotesType.disabled);
+    expect(field.smartDashesType, SmartDashesType.disabled);
+    await disposeStrip(tester);
+  });
+
+  testWidgets('text typed while a confirmation is pending keeps its order',
+      (tester) async {
+    await pumpStrip(tester);
+    tester.testTextInput.updateEditingValue(value('$sentinel😀'));
+    await tester.pump();
+    tester.testTextInput.updateEditingValue(value('${sentinel}abc'));
+    await tester.pump();
+    expect(conn.sent, isEmpty);
+    expect(find.text('有 1 個字 PTT 不支援，將以 ? 取代'), findsOneWidget);
+
+    tester.testTextInput.updateEditingValue(value('$sentinel🙂X'));
+    await tester.pump();
+    expect(conn.sent, isEmpty);
+    expect(find.text('有 2 個字 PTT 不支援，將以 ? 取代'), findsOneWidget);
+
+    await tester.tap(find.text('送出'));
+    await tester.pump();
+    expect(String.fromCharCodes(conn.sent), '?abc?X');
+    await disposeStrip(tester);
+  });
+
   testWidgets('deleting the placeholder sends Backspace', (tester) async {
     await pumpStrip(tester);
     tester.testTextInput.updateEditingValue(value(''));

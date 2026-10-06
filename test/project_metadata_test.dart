@@ -18,7 +18,10 @@ void main() {
 
   test('the iOS build guide covers every item that needs a real iPhone', () {
     final guide = File('docs/ios-build.md').readAsStringSync();
-    for (final topic in const ['鍵盤', '鑰匙圈', '回到前景', '手勢', '字體']) {
+    for (final topic in const [
+      '鍵盤', '鑰匙圈', '回到前景', '手勢', '字體',
+      'Homebrew', 'Accounts', '引號', '自動登入', 'ios/',
+    ]) {
       expect(guide, contains(topic), reason: topic);
     }
     for (final file in const [

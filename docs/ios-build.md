@@ -16,8 +16,10 @@
    ```
    sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
    sudo xcodebuild -runFirstLaunch
-   brew install cocoapods
+   sudo gem install cocoapods
    ```
+
+   若這台 Mac 已裝有 Homebrew，也可以改用 `brew install cocoapods`。兩者擇一即可，不需要為此另外安裝 Homebrew。
 
 3. **安裝 Flutter**：
 
@@ -27,7 +29,7 @@
    flutter doctor
    ```
 
-   `flutter doctor` 的 Xcode 一項必須是勾。
+   `flutter doctor` 的 Xcode 一項必須是勾。`export PATH` 只對目前這個終端機視窗有效；開新視窗後要再執行一次。
 
 4. **取得專案並確認測試通過**：
 
@@ -38,15 +40,26 @@
    flutter test
    ```
 
-5. **設定簽章**：執行 `open ios/Runner.xcworkspace`。在 Xcode 左側選 Runner，到 Signing & Capabilities，勾選 Automatically manage signing，Team 選自己的 Apple ID。若出現識別碼已被使用的錯誤，把 Bundle Identifier 改成自己獨有的字串。
+5. **設定簽章**：
+   1. 先在 Xcode 的 Settings → Accounts 按左下角的加號，登入自己的 Apple ID。
+   2. 執行 `open ios/Runner.xcworkspace`。若這個檔案還不存在，先執行一次 `flutter build ios --no-codesign` 讓它產生。
+   3. 在 Xcode 左側選 Runner，到 Signing & Capabilities，勾選 Automatically manage signing，Team 選剛才登入的帳號。
+   4. 若出現識別碼已被使用的錯誤，把 Bundle Identifier 改成自己獨有的字串。
 
-6. **安裝到手機**：接上 iPhone 並信任這台電腦。iOS 16 以上需到「設定 → 隱私權與安全性 → 開發者模式」開啟並重新啟動。然後執行：
+6. **安裝到手機**：第一次安裝會分成兩輪，這是正常的。
+   1. 接上 iPhone，在手機上按「信任這台電腦」。
+   2. 執行 `flutter run --release`。第一輪通常會安裝成功但無法啟動。
+   3. 到手機的「設定 → 隱私權與安全性 → 開發者模式」開啟並重新啟動。這個選項要在手機被 Xcode 認得或嘗試安裝過之後才會出現。
+   4. 到「設定 → 一般 → VPN 與裝置管理」信任自己的開發者憑證。
+   5. 再執行一次 `flutter run --release`。
+
+7. **把 Mac 上產生的檔案提交回去**：第一次建置會在 `ios/` 底下產生或修改檔案（例如 `Podfile`、`Podfile.lock`、專案設定）。這是預期的，請在 Mac 上提交並推送，否則之後 `git pull` 會衝突：
 
    ```
-   flutter run --release
+   git add ios/
+   git commit -m "chore: add iOS build files generated on macOS"
+   git push
    ```
-
-   第一次開啟 app 前，到「設定 → 一般 → VPN 與裝置管理」信任自己的開發者憑證。
 
 ## 實機檢查清單
 
@@ -64,6 +77,9 @@
 - [ ] 按鍵盤右下角的送出鍵，等同 Enter，且鍵盤不會收起。
 - [ ] 按鍵列上的按鍵有作用，而且按了之後鍵盤不會收起。
 - [ ] 按下 Ctrl 再打 `p`，等同 Ctrl+P。
+- [ ] 打單引號與雙引號，PTT 畫面上出現的是一般的直引號，不是彎引號。
+- [ ] 注音組字到一半時按送出鍵，PTT 畫面沒有換行。
+- [ ] 快速連續打字，或貼上一段文字，PTT 畫面上沒有重複的字。
 
 刪除鍵沒有反應時，問題在欄位中的佔位字元機制，檢查 `_onChanged`。
 
@@ -79,6 +95,7 @@
 
 檔案：`lib/ui/session_controller.dart`
 
+- [ ] 在登入頁輸入帳密後按登入：自動登入會打完帳號，接著在密碼提示出現時打完密碼。若只打了帳號就停住，代表密碼提示的字樣與假設不同，改 `lib/core/login/auto_login.dart` 開頭的兩個常數。
 - [ ] 登入後按 Home 鍵離開 app，等 1 分鐘再回來：自動重新連線並登入。
 - [ ] 短暫切到其他 app 幾秒再回來：連線仍在，或自動重連，不會卡在斷線畫面。
 - [ ] 開啟飛航模式：一段時間內出現「已斷線」。若遲遲沒有出現，需要在 `lib/core/connection/ws_connection.dart` 加上連線存活偵測。
@@ -90,7 +107,8 @@
 
 - [ ] 向右滑返回上一層，向左滑進入，向上滑下一頁，向下滑上一頁。
 - [ ] 滑動的手感：不會太容易誤觸，也不需要滑很長。需要調整時改 `classifySwipe` 的 `minDistance`。
-- [ ] 從螢幕左邊緣向右滑：確認是送出返回鍵，而不是被系統的返回手勢攔截並離開終端機頁。
+- [ ] 從螢幕左邊緣向右滑：送出返回鍵，不會離開終端機頁。離開終端機頁的方式是斷線後按「返回登入頁」。
+- [ ] 直向時點終端機畫面下方的黑色區域：鍵盤彈出或收起，不會誤開連結。
 - [ ] 雙指可放大到 4 倍，放大後單指可拖曳，縮回原大小後滑動手勢恢復。
 - [ ] 長按並拖曳可選取文字，放開後出現「已複製」，貼到備忘錄確認內容正確。
 - [ ] 點一下文章中的網址，以 Safari 開啟。

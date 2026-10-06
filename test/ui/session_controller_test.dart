@@ -148,6 +148,37 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('a drop noticed just after resuming reconnects once', (tester) async {
+    create();
+    await controller.connect();
+    // The app was frozen in the background; the dead socket is only
+    // noticed after the resumed event.
+    controller.onResumed();
+    conn.drop();
+    await tester.pump();
+    expect(controller.status, ConnectionStatus.connected);
+    expect(conn.connectCalls, 2);
+
+    conn.drop();
+    await tester.pump();
+    expect(controller.status, ConnectionStatus.disconnected);
+    expect(controller.showDisconnectedOverlay, isTrue);
+    expect(conn.connectCalls, 2);
+    controller.dispose();
+  });
+
+  testWidgets('a drop long after resuming does not reconnect', (tester) async {
+    create();
+    await controller.connect();
+    controller.onResumed();
+    await tester.pump(const Duration(seconds: 6));
+    conn.drop();
+    await tester.pump();
+    expect(controller.status, ConnectionStatus.disconnected);
+    expect(conn.connectCalls, 1);
+    controller.dispose();
+  });
+
   // Review Focus 4
   testWidgets('resuming repeatedly connects once', (tester) async {
     create();

@@ -31,10 +31,15 @@ class SessionController extends ChangeNotifier {
   /// How long after connecting auto-login keeps waiting for its prompts.
   final Duration loginTimeout;
 
+  /// How long after returning to the foreground a drop still counts as
+  /// having happened in the background.
+  static const Duration _resumeGrace = Duration(seconds: 5);
+
   late final AntiIdle _antiIdle;
   late final StreamSubscription<void> _updates;
   AutoLogin? _autoLogin;
   Timer? _loginTimer;
+  Timer? _resumeTimer;
   bool _connecting = false;
   bool _offline = false;
   bool _everConnected = false;
@@ -83,7 +88,14 @@ class SessionController extends ChangeNotifier {
   /// Call when the app returns to the foreground.
   void onResumed() {
     if (_disposed || !_everConnected || _offline) return;
-    connect();
+    if (status == ConnectionStatus.disconnected) {
+      connect();
+      return;
+    }
+    // The app was frozen in the background, so a connection that died there
+    // is often only noticed moments after this call.
+    _resumeTimer?.cancel();
+    _resumeTimer = Timer(_resumeGrace, () {});
   }
 
   void _onUpdate() {
@@ -100,6 +112,10 @@ class SessionController extends ChangeNotifier {
     } else if (status == ConnectionStatus.disconnected) {
       _antiIdle.stop();
       _stopAutoLogin();
+      if (_resumeTimer?.isActive ?? false) {
+        _resumeTimer?.cancel();
+        scheduleMicrotask(connect);
+      }
     }
     _notifyIfChanged();
   }
@@ -122,6 +138,7 @@ class SessionController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _resumeTimer?.cancel();
     _antiIdle.stop();
     _stopAutoLogin();
     _updates.cancel();

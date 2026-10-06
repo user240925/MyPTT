@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myptt/core/connection/connection.dart';
@@ -185,6 +186,55 @@ void main() {
     await tester.pumpAndSettle();
     expect(connections.length, 2);
     expect(connections.last.status, ConnectionStatus.connected);
+    await disposeAll(tester);
+  });
+
+  testWidgets('the iOS edge swipe sends a key instead of leaving the terminal',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      await pumpLogin(tester);
+      await tester.tap(find.text('不自動登入，直接連線'));
+      await tester.pumpAndSettle();
+
+      await tester.flingFrom(const Offset(5, 200), const Offset(400, 0), 1500);
+      await tester.pumpAndSettle();
+      expect(find.byType(TerminalPage), findsOneWidget);
+      expect(connections.single.status, ConnectionStatus.connected);
+      expect(sentText(), '\x1b[D');
+      await disposeAll(tester);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('a disconnected terminal offers a way back to the login page',
+      (tester) async {
+    await pumpLogin(tester);
+    await tester.tap(find.text('不自動登入，直接連線'));
+    await tester.pumpAndSettle();
+    expect(find.text('返回登入頁'), findsNothing);
+
+    connections.single.drop();
+    await tester.pump();
+    await tester.tap(find.text('返回登入頁'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TerminalPage), findsNothing);
+    expect(find.text('登入'), findsOneWidget);
+    await disposeAll(tester);
+  });
+
+  testWidgets('offline browsing also offers a way back', (tester) async {
+    await pumpLogin(tester);
+    await tester.tap(find.text('不自動登入，直接連線'));
+    await tester.pumpAndSettle();
+    connections.single.drop();
+    await tester.pump();
+    await tester.tap(find.text('繼續瀏覽'));
+    await tester.pump();
+    await tester.tap(find.text('返回登入頁'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TerminalPage), findsNothing);
     await disposeAll(tester);
   });
 

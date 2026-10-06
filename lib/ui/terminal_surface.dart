@@ -191,7 +191,12 @@ class _TerminalSurfaceState extends State<TerminalSurface> {
       return;
     }
     final session = widget.session;
-    final url = urlAt(session.screen, session.codec, _cellAt(d.localPosition));
+    // In portrait most of the widget is empty space below the terminal;
+    // a tap there must not land on the nearest edge cell.
+    final onTerminal = (_origin & _size).contains(d.localPosition);
+    final url = onTerminal
+        ? urlAt(session.screen, session.codec, _cellAt(d.localPosition))
+        : null;
     if (url != null) {
       widget.onOpenUrl?.call(url);
     } else {

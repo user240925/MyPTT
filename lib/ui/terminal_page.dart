@@ -77,45 +77,60 @@ class _TerminalPageState extends State<TerminalPage>
   Widget build(BuildContext context) {
     final c = _controller;
     final openUrl = widget.openUrl;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (c.connecting || c.status == ConnectionStatus.connecting)
-              const _Banner(label: '連線中…')
-            else if (c.offline)
-              _Banner(label: '已離線', actionLabel: '重新連線', onAction: c.connect),
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  TerminalSurface(
-                    session: c.session,
-                    inputEnabled: c.inputEnabled,
-                    onTapBackground: _toggleKeyboard,
-                    onOpenUrl: openUrl == null ? null : (url) => openUrl(url),
-                    onCopied: _showCopied,
-                  ),
-                  if (c.showDisconnectedOverlay)
-                    _DisconnectedOverlay(
-                      error: c.error,
-                      canBrowse: c.everConnected,
-                      onReconnect: c.connect,
-                      onBrowse: c.browseOffline,
+    final navigator = Navigator.maybeOf(context);
+    final VoidCallback? onLeave = navigator != null && navigator.canPop()
+        ? navigator.pop
+        : null;
+    // Swiping right is the BBS "back" key, so the system back gesture must
+    // not close this page. Leaving is offered once the connection is down.
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Column(
+            children: [
+              if (c.connecting || c.status == ConnectionStatus.connecting)
+                const _Banner(label: '連線中…')
+              else if (c.offline)
+                _Banner(
+                  label: '已離線',
+                  actionLabel: '重新連線',
+                  onAction: c.connect,
+                  onLeave: onLeave,
+                ),
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    TerminalSurface(
+                      session: c.session,
+                      inputEnabled: c.inputEnabled,
+                      onTapBackground: _toggleKeyboard,
+                      onOpenUrl: openUrl == null ? null : (url) => openUrl(url),
+                      onCopied: _showCopied,
                     ),
-                ],
+                    if (c.showDisconnectedOverlay)
+                      _DisconnectedOverlay(
+                        error: c.error,
+                        canBrowse: c.everConnected,
+                        onReconnect: c.connect,
+                        onBrowse: c.browseOffline,
+                        onLeave: onLeave,
+                      ),
+                  ],
+                ),
               ),
-            ),
-            if (c.inputEnabled) ...[
-              InputStrip(
-                session: c.session,
-                focusNode: _inputFocus,
-                ctrlLatch: _ctrlLatch,
-              ),
-              KeyBar(session: c.session, ctrlLatch: _ctrlLatch),
+              if (c.inputEnabled) ...[
+                InputStrip(
+                  session: c.session,
+                  focusNode: _inputFocus,
+                  ctrlLatch: _ctrlLatch,
+                ),
+                KeyBar(session: c.session, ctrlLatch: _ctrlLatch),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -123,11 +138,19 @@ class _TerminalPageState extends State<TerminalPage>
 }
 
 class _Banner extends StatelessWidget {
-  const _Banner({required this.label, this.actionLabel, this.onAction});
+  const _Banner({
+    required this.label,
+    this.actionLabel,
+    this.onAction,
+    this.onLeave,
+  });
 
   final String label;
   final String? actionLabel;
   final VoidCallback? onAction;
+
+  /// Returns to the previous page; null when there is none.
+  final VoidCallback? onLeave;
 
   @override
   Widget build(BuildContext context) {
@@ -139,6 +162,8 @@ class _Banner extends StatelessWidget {
           Expanded(child: Text(label)),
           if (actionLabel != null)
             TextButton(onPressed: onAction, child: Text(actionLabel)),
+          if (onLeave != null)
+            TextButton(onPressed: onLeave, child: const Text('返回登入頁')),
         ],
       ),
     );
@@ -151,6 +176,7 @@ class _DisconnectedOverlay extends StatelessWidget {
     required this.canBrowse,
     required this.onReconnect,
     required this.onBrowse,
+    this.onLeave,
   });
 
   /// Why connecting failed, or null for a connection that simply dropped.
@@ -160,6 +186,9 @@ class _DisconnectedOverlay extends StatelessWidget {
   final bool canBrowse;
   final VoidCallback onReconnect;
   final VoidCallback onBrowse;
+
+  /// Returns to the previous page; null when there is none.
+  final VoidCallback? onLeave;
 
   @override
   Widget build(BuildContext context) {
@@ -184,6 +213,8 @@ class _DisconnectedOverlay extends StatelessWidget {
               FilledButton(onPressed: onReconnect, child: const Text('重新連線')),
               if (canBrowse)
                 TextButton(onPressed: onBrowse, child: const Text('繼續瀏覽')),
+              if (onLeave != null)
+                TextButton(onPressed: onLeave, child: const Text('返回登入頁')),
             ],
           ),
         ),

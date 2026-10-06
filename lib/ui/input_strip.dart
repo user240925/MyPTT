@@ -108,10 +108,14 @@ class _InputStripState extends State<InputStrip> {
       }
     }
 
-    final unsupported = session.codec.encode(text).unmappable;
+    // Text typed while a confirmation is showing joins it, so nothing is
+    // lost or sent out of order.
+    final held = _pending;
+    final combined = held == null ? text : held + text;
+    final unsupported = session.codec.encode(combined).unmappable;
     if (unsupported > 0) {
       setState(() {
-        _pending = text;
+        _pending = combined;
         _pendingUnsupported = unsupported;
       });
       return;
@@ -185,8 +189,14 @@ class _InputStripState extends State<InputStrip> {
               textInputAction: TextInputAction.send,
               // Keep focus so the keyboard stays open after Enter.
               onEditingComplete: () {},
-              onSubmitted: (_) =>
-                  widget.session.sendBytes(bytesForKey(TermKey.enter)),
+              // Quotes and dashes must reach the BBS as typed.
+              smartQuotesType: SmartQuotesType.disabled,
+              smartDashesType: SmartDashesType.disabled,
+              onSubmitted: (_) {
+                // While composing, the action key belongs to the IME.
+                if (_composing) return;
+                widget.session.sendBytes(bytesForKey(TermKey.enter));
+              },
               decoration: const InputDecoration(
                 isDense: true,
                 prefixText: '輸入 ',

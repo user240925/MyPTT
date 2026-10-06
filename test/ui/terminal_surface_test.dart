@@ -202,6 +202,22 @@ void main() {
     await disposeSurface(tester);
   });
 
+  testWidgets('taps outside the terminal area are background taps', (tester) async {
+    await pumpSurface(tester);
+    // Portrait-like: the terminal fills the top 480 px, black space below.
+    tester.view.physicalSize = const Size(800, 900);
+    await tester.pump();
+    conn.emit('\x1b[24;1Hhttps://example.com/bottom'.codeUnits);
+    await tester.pump();
+
+    await tester.tapAt(const Offset(105, 470));
+    expect(opened, ['https://example.com/bottom']);
+    await tester.tapAt(const Offset(105, 800));
+    expect(opened.length, 1);
+    expect(backgroundTaps, 1);
+    await disposeSurface(tester);
+  });
+
   testWidgets('survives very small and very large sizes', (tester) async {
     await pumpSurface(tester);
     conn.emit(codec.encode('中文 ABC █').bytes);
