@@ -10,6 +10,12 @@ class FakeConnection implements Connection {
   /// Everything passed to [send], in order.
   final List<int> sent = [];
 
+  /// When set, [connect] throws this instead of connecting.
+  Object? connectError;
+
+  /// Number of times [connect] actually attempted a connection.
+  int connectCalls = 0;
+
   @override
   ConnectionStatus status = ConnectionStatus.disconnected;
 
@@ -20,7 +26,19 @@ class FakeConnection implements Connection {
   Stream<ConnectionStatus> get statusChanges => _status.stream;
 
   @override
-  Future<void> connect() async => _set(ConnectionStatus.connected);
+  Future<void> connect() async {
+    if (status != ConnectionStatus.disconnected) return;
+    connectCalls++;
+    _set(ConnectionStatus.connecting);
+    // Yield once so callers can observe the connecting state.
+    await Future<void>.value();
+    final error = connectError;
+    if (error != null) {
+      _set(ConnectionStatus.disconnected);
+      throw error;
+    }
+    _set(ConnectionStatus.connected);
+  }
 
   @override
   void send(List<int> bytes) => sent.addAll(bytes);
@@ -35,6 +53,7 @@ class FakeConnection implements Connection {
   void drop() => _set(ConnectionStatus.disconnected);
 
   void _set(ConnectionStatus s) {
+    if (status == s) return;
     status = s;
     _status.add(s);
   }

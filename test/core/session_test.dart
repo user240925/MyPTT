@@ -44,7 +44,7 @@ void main() {
     expect(session.status, ConnectionStatus.connected);
     conn.drop();
     expect(session.status, ConnectionStatus.disconnected);
-    expect(updates, 2);
+    expect(updates, 3);
   });
 
   test('telnet negotiation is answered through the connection', () async {
