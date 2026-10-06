@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'core/connection/ws_connection.dart';
 import 'core/encoding/big5_codec.dart';
-import 'core/session.dart';
-import 'ui/session_controller.dart';
-import 'ui/terminal_page.dart';
+import 'platform/link_opener.dart';
+import 'platform/secure_credential_store.dart';
+import 'ui/login_page.dart';
 
 Future<Big5Codec> loadCodec() async {
   final b2u = await rootBundle.load('assets/uao/b2u.bin');
@@ -22,8 +21,10 @@ Future<void> main() async {
   runApp(MaterialApp(
     title: 'MyPTT',
     theme: ThemeData.dark(),
-    home: TerminalPage(
-      controller: SessionController(TerminalSession(WsConnection(), codec)),
+    home: LoginPage(
+      codec: codec,
+      store: const SecureCredentialStore(),
+      openUrl: openExternalUrl,
     ),
   ));
 }
