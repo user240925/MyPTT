@@ -1,6 +1,8 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myptt/core/encoding/big5_codec.dart';
@@ -174,6 +176,29 @@ void main() {
     await tester.tapAt(const Offset(400, 300));
     expect(opened.length, 1);
     expect(backgroundTaps, 2);
+    expect(conn.sent, isEmpty);
+    await disposeSurface(tester);
+  });
+
+  testWidgets('the mouse pointer becomes a hand over a URL', (tester) async {
+    await pumpSurface(tester);
+    conn.emit('see https://example.com/a now'.codeUnits);
+    await tester.pump();
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(5, 10));
+    addTearDown(mouse.removePointer);
+    MouseCursor cursor() =>
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1)!;
+
+    await tester.pump();
+    expect(cursor(), SystemMouseCursors.basic);
+    await mouse.moveTo(const Offset(105, 10));
+    await tester.pump();
+    expect(cursor(), SystemMouseCursors.click);
+    await mouse.moveTo(const Offset(105, 300));
+    await tester.pump();
+    expect(cursor(), SystemMouseCursors.basic);
     expect(conn.sent, isEmpty);
     await disposeSurface(tester);
   });

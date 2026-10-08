@@ -71,6 +71,9 @@ class _TerminalSurfaceState extends State<TerminalSurface> {
 
   /// True while a long-press selection is in progress.
   bool _selecting = false;
+
+  /// True while a mouse pointer is over a link.
+  bool _hoveringUrl = false;
   Selection? _selection;
 
   @override
@@ -185,18 +188,24 @@ class _TerminalSurfaceState extends State<TerminalSurface> {
     }
   }
 
+  String? _urlAtPosition(Offset local) {
+    // In portrait most of the widget is empty space below the terminal;
+    // a position there must not land on the nearest edge cell.
+    if (!(_origin & _size).contains(local)) return null;
+    final session = widget.session;
+    return urlAt(session.screen, session.codec, _cellAt(local));
+  }
+
+  void _setHoveringUrl(bool value) {
+    if (value != _hoveringUrl) setState(() => _hoveringUrl = value);
+  }
+
   void _onTapUp(TapUpDetails d) {
     if (_selection != null) {
       setState(() => _selection = null);
       return;
     }
-    final session = widget.session;
-    // In portrait most of the widget is empty space below the terminal;
-    // a tap there must not land on the nearest edge cell.
-    final onTerminal = (_origin & _size).contains(d.localPosition);
-    final url = onTerminal
-        ? urlAt(session.screen, session.codec, _cellAt(d.localPosition))
-        : null;
+    final url = _urlAtPosition(d.localPosition);
     if (url != null) {
       widget.onOpenUrl?.call(url);
     } else {
@@ -243,43 +252,51 @@ class _TerminalSurfaceState extends State<TerminalSurface> {
         _origin = Offset((constraints.maxWidth - w) / 2, 0);
         _offset = _clampOffset(_offset, _scale);
 
-        return Listener(
-          onPointerDown: _onPointerDown,
-          onPointerMove: _onPointerMove,
-          onPointerUp: _onPointerUp,
-          onPointerCancel: _onPointerCancel,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onScaleStart: _onScaleStart,
-            onScaleUpdate: _onScaleUpdate,
-            onScaleEnd: _onScaleEnd,
-            onTapUp: _onTapUp,
-            onLongPressStart: _onLongPressStart,
-            onLongPressMoveUpdate: _onLongPressMove,
-            onLongPressEnd: _onLongPressEnd,
-            child: ColoredBox(
-              color: Colors.black,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: SizedBox(
-                  width: w,
-                  height: h,
-                  child: ClipRect(
-                    child: Transform.translate(
-                      offset: _offset,
-                      child: Transform.scale(
-                        key: const Key('terminal-zoom'),
-                        scale: _scale,
-                        alignment: Alignment.topLeft,
-                        child: CustomPaint(
-                          size: _size,
-                          painter: TerminalPainter(
-                            screen: session.screen,
-                            codec: session.codec,
-                            blinkOn: _blinkOn,
-                            showCursor:
-                                session.status == ConnectionStatus.connected,
-                            selection: _selection,
+        return MouseRegion(
+          cursor: _hoveringUrl
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          onHover: (e) =>
+              _setHoveringUrl(_urlAtPosition(e.localPosition) != null),
+          onExit: (_) => _setHoveringUrl(false),
+          child: Listener(
+            onPointerDown: _onPointerDown,
+            onPointerMove: _onPointerMove,
+            onPointerUp: _onPointerUp,
+            onPointerCancel: _onPointerCancel,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onScaleStart: _onScaleStart,
+              onScaleUpdate: _onScaleUpdate,
+              onScaleEnd: _onScaleEnd,
+              onTapUp: _onTapUp,
+              onLongPressStart: _onLongPressStart,
+              onLongPressMoveUpdate: _onLongPressMove,
+              onLongPressEnd: _onLongPressEnd,
+              child: ColoredBox(
+                color: Colors.black,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: w,
+                    height: h,
+                    child: ClipRect(
+                      child: Transform.translate(
+                        offset: _offset,
+                        child: Transform.scale(
+                          key: const Key('terminal-zoom'),
+                          scale: _scale,
+                          alignment: Alignment.topLeft,
+                          child: CustomPaint(
+                            size: _size,
+                            painter: TerminalPainter(
+                              screen: session.screen,
+                              codec: session.codec,
+                              blinkOn: _blinkOn,
+                              showCursor:
+                                  session.status == ConnectionStatus.connected,
+                              selection: _selection,
+                            ),
                           ),
                         ),
                       ),

@@ -70,6 +70,19 @@ void main() {
     expect(urlAt(screen, codec, const CellPos(5, 0)), isNull);
   });
 
+  test('urlSpansOfRow lists every URL with its columns', () {
+    feed('a http://x.io/1 中 https://y.io/2. end');
+    final spans = urlSpansOfRow(screen, codec, 0);
+    expect(spans.length, 2);
+    expect(spans[0].url, 'http://x.io/1');
+    expect((spans[0].firstCol, spans[0].lastCol), (2, 14));
+    expect(spans[1].url, 'https://y.io/2');
+    expect((spans[1].firstCol, spans[1].lastCol), (19, 32));
+    expect(urlSpansOfRow(screen, codec, 1), isEmpty);
+    expect(urlSpansOfRow(screen, codec, -1), isEmpty);
+    expect(urlSpansOfRow(screen, codec, 99), isEmpty);
+  });
+
   test('urlAt accounts for wide characters before the URL', () {
     feed('網址 http://example.com/a 結束');
     expect(urlAt(screen, codec, const CellPos(0, 5)), 'http://example.com/a');

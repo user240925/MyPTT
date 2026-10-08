@@ -72,6 +72,17 @@ void main() {
     expect(await paintAndReadPixel(tester, p, size, const Offset(35, 10)), black);
   });
 
+  testWidgets('URLs are underlined and other text is not', (tester) async {
+    final screen = ScreenBuffer();
+    Terminal(screen).feed('https://a.bc  xyz'.codeUnits);
+    final p = painter(screen);
+    // The bottom pixel row of a cell is below the glyph itself.
+    expect(await paintAndReadPixel(tester, p, size, const Offset(5, 19)), isNot(black));
+    expect(await paintAndReadPixel(tester, p, size, const Offset(115, 19)), isNot(black));
+    expect(await paintAndReadPixel(tester, p, size, const Offset(125, 19)), black);
+    expect(await paintAndReadPixel(tester, p, size, const Offset(145, 19)), black);
+  });
+
   testWidgets('a full block fills its whole cell with no gap', (tester) async {
     final screen = ScreenBuffer();
     Terminal(screen).feed([...'\x1b[1;37m'.codeUnits, ...codec.encode('██').bytes]);

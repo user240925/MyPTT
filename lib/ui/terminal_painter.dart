@@ -76,6 +76,20 @@ class TerminalPainter extends CustomPainter {
         }
       }
 
+      // Underline links so they can be told apart from ordinary text.
+      for (final span in urlSpansOfRow(screen, codec, r)) {
+        final thickness = ch / 14 < 1 ? 1.0 : ch / 14;
+        canvas.drawRect(
+          Rect.fromLTRB(
+            span.firstCol * cw,
+            top + ch - thickness,
+            (span.lastCol + 1) * cw,
+            top + ch,
+          ),
+          fill..color = foregroundOf(screen.attrAt(r, span.firstCol)),
+        );
+      }
+
       final selected = selection?.columnsOnRow(r, screen.cols);
       if (selected != null) {
         final (from, to) = selected;

@@ -67,25 +67,46 @@ String textInRange(ScreenBuffer s, Big5Codec codec, Selection sel) {
 final RegExp _url = RegExp(r'https?://[\x21-\x7E]+');
 final RegExp _trailingPunctuation = RegExp(r'[.,;:!?)\]>]+$');
 
-/// The http(s) URL covering [pos], or null. URLs that wrap onto the next row
-/// are not joined.
-String? urlAt(ScreenBuffer s, Big5Codec codec, CellPos pos) {
-  if (pos.row < 0 || pos.row >= s.rows) return null;
+/// A URL on one row and the columns it occupies, both inclusive.
+class UrlSpan {
+  const UrlSpan(this.url, this.firstCol, this.lastCol);
+
+  final String url;
+  final int firstCol;
+  final int lastCol;
+}
+
+/// Every http(s) URL on [row]. URLs that wrap onto the next row are not
+/// joined.
+List<UrlSpan> urlSpansOfRow(ScreenBuffer s, Big5Codec codec, int row) {
+  if (row < 0 || row >= s.rows) return const [];
   final text = StringBuffer();
   // First and last column of each character in [text].
   final firstCol = <int>[];
   final lastCol = <int>[];
-  for (final g in glyphsOfRow(s, pos.row, codec)) {
+  for (final g in glyphsOfRow(s, row, codec)) {
     // Keep one UTF-16 unit per glyph so string indices match the lists.
-    text.writeCharCode(g.codePoint > 0xFFFF ? Big5Codec.replacement : g.codePoint);
+    text.writeCharCode(
+      g.codePoint > 0xFFFF ? Big5Codec.replacement : g.codePoint,
+    );
     firstCol.add(g.col);
     lastCol.add(g.col + g.width - 1);
   }
+  final spans = <UrlSpan>[];
   for (final m in _url.allMatches(text.toString())) {
     final url = m.group(0)!.replaceFirst(_trailingPunctuation, '');
     if (url.isEmpty) continue;
-    final endIndex = m.start + url.length - 1;
-    if (pos.col >= firstCol[m.start] && pos.col <= lastCol[endIndex]) return url;
+    spans.add(
+      UrlSpan(url, firstCol[m.start], lastCol[m.start + url.length - 1]),
+    );
+  }
+  return spans;
+}
+
+/// The http(s) URL covering [pos], or null.
+String? urlAt(ScreenBuffer s, Big5Codec codec, CellPos pos) {
+  for (final span in urlSpansOfRow(s, codec, pos.row)) {
+    if (pos.col >= span.firstCol && pos.col <= span.lastCol) return span.url;
   }
   return null;
 }
